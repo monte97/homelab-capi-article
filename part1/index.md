@@ -1,12 +1,13 @@
 ---
-title: "Deploy Kubernetes con Cluster API: Gestione Automatizzata dei Cluster"
+title: "Part1: Deploy Kubernetes con Cluster API: Gestione Automatizzata dei Cluster"
 date: 2025-07-24T10:30:00+01:00
 description: Guida completa al deployment e gestione di cluster Kubernetes utilizzando Cluster API (CAPI) per l'automazione dell'infrastruttura
 menu:
   sidebar:
-    name: Kubernetes CAPI
-    identifier: kubernetes-capi-deploy
+    name: Kubernetes CAPI1
+    identifier: kubernetes-capi-deploy1
     weight: 15
+    parent: CAPI
 tags: ["Kubernetes", "CAPI", "Cluster API", "Infrastructure as Code", "DevOps", "Automazione"]
 categories: ["Kubernetes", "Cloud Native", "Infrastruttura"]
 ---
@@ -320,7 +321,7 @@ Il Custom Resource **TalosConfig** gioca un ruolo vitale nel customizzare la con
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 │                                                │
 ├─ CAPI Controllers                              ├─ Control Plane (3x)
-├─ Proxmox Provider                              ├─ Worker Nodes (3x)
-├─ Talos Provider                                └─ CNI (Cilium)
+├─ Proxmox Provider                              └─ Worker Nodes (3x)
+├─ Talos Provider                                 
 └─ Bootstrap Provider                            
 ```
