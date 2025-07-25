@@ -5,6 +5,8 @@ menu:
     name: Index
     identifier: CAPI
     weight: 1
+draft: true
+hidden: true
 ---
 
 ### Parte 1: "Introduzione a Cluster API - Dal Chaos all'Automazione"
