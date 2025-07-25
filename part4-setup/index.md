@@ -1,26 +1,28 @@
 ---
-title: "Parte 4: Setup Pratico - Da Zero a Cluster Funzionante"
+title: "Parte 4: Setup Pratico - Day 1 Operations"
 date: 2025-07-24T10:30:00+01:00
-description: Guida completa al deployment e gestione di cluster Kubernetes utilizzando Cluster API (CAPI) per l'automazione dell'infrastruttura
+description: Guida completa al deployment iniziale di cluster Kubernetes utilizzando Cluster API (CAPI) - Da Zero a Cluster Funzionante
 menu:
   sidebar:
     name: Setup Pratico
     identifier: CAPI-4
     weight: 25
     parent: CAPI
-tags: ["Kubernetes", "CAPI", "Cluster API", "Infrastructure as Code", "DevOps", "Automazione"]
+tags: ["Kubernetes", "CAPI", "Cluster API", "Infrastructure as Code", "DevOps", "Day 1 Operations"]
 categories: ["Kubernetes", "Cloud Native", "Infrastruttura"]
 ---
 
-# Parte 4: Setup Pratico - Da Zero a Cluster Funzionante
+# Parte 4: Setup Pratico - Day 1 Operations
 
 *Quarto articolo della serie "Deploy Kubernetes con Cluster API: Gestione Automatizzata dei Cluster"*
 
 ---
 
-Nelle parti precedenti abbiamo esplorato i fondamenti teorici di Cluster API, l'architettura dei componenti e l'integrazione con Talos Linux. È ora il momento di mettere in pratica questi concetti attraverso un'implementazione completa end-to-end.
+Nelle parti precedenti abbiamo esplorato i fondamenti teorici di Cluster API, l'architettura dei componenti e l'integrazione con Talos Linux. È ora il momento di mettere in pratica questi concetti attraverso un'implementazione completa delle **Day 1 Operations**.
 
-Questa parte guiderà attraverso ogni step del processo: dalla configurazione dell'infrastruttura Proxmox al deployment del primo cluster workload funzionante, utilizzando il Python generator per automatizzare la generazione delle configurazioni parametriche.
+Questa parte guiderà attraverso ogni step del processo di deployment iniziale: dalla configurazione dell'infrastruttura Proxmox al primo cluster workload funzionante e verificato, utilizzando il Python generator per automatizzare la generazione delle configurazioni parametriche.
+
+L'obiettivo è ottenere un cluster Kubernetes **minimalmente funzionante e verificato**, pronto per le configurazioni avanzate che verranno coperte nella Parte 5 (Day 2 Operations).
 
 ---
 
@@ -536,200 +538,192 @@ homelab-cluster-worker-xyz  Ready    <none>          8m    v1.32.0   192.168.0.2
 homelab-cluster-worker-def  Ready    <none>          8m    v1.32.0   192.168.0.23  <none>
 ```
 
-### Cluster Verification
+---
+
+## Day 1 Readiness Validation
+
+### Cluster Health Verification
+
+Prima di considerare completate le Day 1 Operations, è essenziale validare che il cluster sia in uno stato healthy e pronto per le configurazioni avanzate.
 
 ```bash
-# Check cluster info
-kubectl --kubeconfig kubeconfig-homelab cluster-info
-
-# Verify system pods
-kubectl --kubeconfig kubeconfig-homelab get pods -A | head -10
-
-# Check cluster components
+# Comprehensive cluster health check
 kubectl --kubeconfig kubeconfig-homelab get componentstatuses
+kubectl --kubeconfig kubeconfig-homelab get nodes -o wide
+kubectl --kubeconfig kubeconfig-homelab get pods -A | grep -E "(kube-system|kube-public)"
+
+# API Server responsiveness test
+kubectl --kubeconfig kubeconfig-homelab cluster-info
+kubectl --kubeconfig kubeconfig-homelab api-resources --verbs=list --namespaced -o name | head -10 | xargs -n 1 kubectl --kubeconfig kubeconfig-homelab get -A
 ```
 
-### Network Connectivity Testing
+### Core System Validation
 
 ```bash
-# Test pod-to-pod communication
-kubectl --kubeconfig kubeconfig-homelab run test-pod --image=busybox --restart=Never -- sleep 3600
+# Verify etcd cluster health
+kubectl --kubeconfig kubeconfig-homelab get pods -n kube-system -l component=etcd -o wide
 
-# Get pod IP
-POD_IP=$(kubectl --kubeconfig kubeconfig-homelab get pod test-pod -o jsonpath='{.status.podIP}')
+# Check control plane components
+kubectl --kubeconfig kubeconfig-homelab get pods -n kube-system -l tier=control-plane
 
-# Test connectivity from another pod
-kubectl --kubeconfig kubeconfig-homelab run test-ping --image=busybox --restart=Never -- ping -c 3 $POD_IP
+# Verify scheduler and controller-manager
+kubectl --kubeconfig kubeconfig-homelab get pods -n kube-system | grep -E "(scheduler|controller-manager)"
 ```
 
-### CNI Installation (if needed)
-
-Se il cluster non ha un CNI preinstallato:
+### Basic Networking Tests
 
 ```bash
-# Install Calico CNI
-kubectl --kubeconfig kubeconfig-homelab apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/calico.yaml
+# DNS functionality test
+kubectl --kubeconfig kubeconfig-homelab run dns-test --image=busybox --restart=Never -- nslookup kubernetes.default.svc.cluster.local
 
-# Or install Cilium
-kubectl --kubeconfig kubeconfig-homelab apply -f https://raw.githubusercontent.com/cilium/cilium/1.15.0/install/kubernetes/quick-install.yaml
+# Wait for pod completion and check results  
+kubectl --kubeconfig kubeconfig-homelab wait --for=condition=Ready pod/dns-test --timeout=60s
+kubectl --kubeconfig kubeconfig-homelab logs dns-test
 
-# Wait for CNI pods ready
-kubectl --kubeconfig kubeconfig-homelab wait --for=condition=Ready pods -l k8s-app=calico-node -n kube-system --timeout=300s
+# Basic external connectivity test
+kubectl --kubeconfig kubeconfig-homelab run network-test --image=busybox --restart=Never -- ping -c 3 8.8.8.8
+kubectl --kubeconfig kubeconfig-homelab wait --for=condition=Ready pod/network-test --timeout=60s
+kubectl --kubeconfig kubeconfig-homelab logs network-test
+
+# Cleanup test pods
+kubectl --kubeconfig kubeconfig-homelab delete pod dns-test network-test
+```
+
+### Service Discovery Validation
+
+```bash
+# Test service discovery
+kubectl --kubeconfig kubeconfig-homelab get svc -A
+
+# Verify kube-dns/coredns service
+kubectl --kubeconfig kubeconfig-homelab get svc -n kube-system | grep dns
+
+# Test service endpoint resolution
+kubectl --kubeconfig kubeconfig-homelab get endpoints -n kube-system
+```
+
+### Resource Availability Check
+
+```bash
+# Check node resources
+kubectl --kubeconfig kubeconfig-homelab describe nodes | grep -A 5 "Allocated resources"
+
+# Verify system resource consumption
+kubectl --kubeconfig kubeconfig-homelab top nodes --kubeconfig kubeconfig-homelab 2>/dev/null || echo "Metrics server not yet available (expected)"
+
+# Check for any resource constraints
+kubectl --kubeconfig kubeconfig-homelab get events --field-selector type=Warning -A
+```
+
+### Day 1 Completion Checklist
+
+Prima di procedere alle Day 2 Operations, verificare che tutti i seguenti requisiti siano soddisfatti:
+
+**✅ Infrastructure Layer:**
+- [ ] Tutti i nodi sono in stato `Ready`
+- [ ] Proxmox VMs sono running e accessibili
+- [ ] Network bridge funzionante
+- [ ] Talos Linux booted su tutti i nodi
+
+**✅ Control Plane Layer:**
+- [ ] API server accessibile su control plane endpoint
+- [ ] etcd cluster healthy e in quorum
+- [ ] Controller manager e scheduler attivi
+- [ ] Cluster API resources creation successful
+
+**✅ Networking Layer:**
+- [ ] Inter-node connectivity verificata
+- [ ] DNS resolution funzionante
+- [ ] Service discovery operativa
+- [ ] External connectivity (se richiesta)
+
+**✅ System Layer:**
+- [ ] Core system pods in Running state
+- [ ] No critical warnings negli events
+- [ ] Resource allocation appropriata
+- [ ] Logs senza errori critici
+
+### Validation Script
+
+Per automatizzare la validazione, utilizzare questo script:
+
+```bash
+#!/bin/bash
+# day1-validation.sh
+
+KUBECONFIG="kubeconfig-homelab"
+echo "=== Day 1 Cluster Validation ==="
+
+# Check nodes
+echo "Checking nodes status..."
+kubectl --kubeconfig $KUBECONFIG get nodes -o wide
+
+# Check system pods
+echo "Checking system pods..."
+kubectl --kubeconfig $KUBECONFIG get pods -n kube-system --no-headers | grep -v Running | grep -v Completed
+
+# Check API server
+echo "Testing API server..."
+kubectl --kubeconfig $KUBECONFIG cluster-info --request-timeout=10s
+
+# Check DNS
+echo "Testing DNS resolution..."
+kubectl --kubeconfig $KUBECONFIG run validation-test --image=busybox --restart=Never --command -- nslookup kubernetes.default.svc.cluster.local
+kubectl --kubeconfig $KUBECONFIG wait --for=condition=Ready pod/validation-test --timeout=30s
+kubectl --kubeconfig $KUBECONFIG logs validation-test
+kubectl --kubeconfig $KUBECONFIG delete pod validation-test
+
+echo "=== Day 1 Validation Complete ==="
+echo "✅ Cluster is ready for Day 2 Operations"
+echo "📖 Proceed to Part 5 for post-deployment configuration"
+```
+
+```bash
+# Run validation
+chmod +x day1-validation.sh
+./day1-validation.sh
 ```
 
 ---
 
-## Post-Deployment Configuration
+## Conclusione Day 1 Operations
 
-### Essential Addons Installation
+A questo punto abbiamo completato con successo tutte le **Day 1 Operations**, ottenendo:
 
-#### MetalLB per LoadBalancer Services
+### ✅ Risultati Conseguiti
 
-```bash
-# Install MetalLB
-kubectl --kubeconfig kubeconfig-homelab apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml
+1. **Infrastructure Setup Completo**
+   - Proxmox configurato con API access
+   - Talos template creato e validato
+   - Network bridge operativo
 
-# Configure IP pool
-cat <<EOF | kubectl --kubeconfig kubeconfig-homelab apply -f -
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: homelab-pool
-  namespace: metallb-system
-spec:
-  addresses:
-  - 192.168.0.40-192.168.0.49
----
-apiVersion: metallb.io/v1beta1
-kind: L2Advertisement
-metadata:
-  name: homelab-advertisement
-  namespace: metallb-system
-spec:
-  ipAddressPools:
-  - homelab-pool
-EOF
-```
+2. **Management Cluster Funzionante**
+   - Kind cluster con CAPI providers installati
+   - clusterctl configurato e operativo
+   - Python generator setup completato
 
-#### Ingress Controller
+3. **Workload Cluster Deployed**
+   - Cluster Kubernetes funzionante con nodi Ready
+   - Control plane accessibile e responsive
+   - Networking di base operativo
 
-```bash
-# Install Nginx Ingress
-kubectl --kubeconfig kubeconfig-homelab apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+4. **Validazione Completa**
+   - Health checks passati
+   - DNS resolution funzionante
+   - API server accessibile
+   - System pods running
 
-# Wait for ingress controller ready
-kubectl --kubeconfig kubeconfig-homelab wait --namespace ingress-nginx \
-  --for=condition=ready pod \
-  --selector=app.kubernetes.io/component=controller \
-  --timeout=120s
-```
+### 🎯 Stato Attuale del Cluster
 
-#### Local Storage Provisioner
+Il cluster è ora in uno stato **minimally viable** e pronto per essere configurato con addon, security policies, monitoring, e altre funzionalità avanzate che verranno coperte nella **Parte 5: Day 2 Operations**.
 
-```bash
-# Install local-path-provisioner per persistent volumes
-kubectl --kubeconfig kubeconfig-homelab apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.28/deploy/local-path-storage.yaml
+### 📋 Prossimi Passi
 
-# Set as default storage class
-kubectl --kubeconfig kubeconfig-homelab patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-```
+La **Parte 5** guiderà attraverso:
+- **Post-deployment configuration** (CNI, LoadBalancer, Ingress)
+- **Security hardening** (RBAC, Network Policies, Pod Security)
+- **Essential addons** (Monitoring, Logging, Backup)
+- **Operational procedures** (Scaling, Upgrades, Troubleshooting)
 
-### Security Configuration
+Il cluster è ora pronto per supportare workload production e per essere gestito attraverso le best practices operative.
 
-#### RBAC Setup
-
-```bash
-# Create admin user for dashboard access
-cat <<EOF | kubectl --kubeconfig kubeconfig-homelab apply -f -
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: admin-user
-  namespace: kube-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: admin-user
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-- kind: ServiceAccount
-  name: admin-user
-  namespace: kube-system
-EOF
-```
-
-#### Network Policies (Optional)
-
-```bash
-# Default deny all ingress policy
-cat <<EOF | kubectl --kubeconfig kubeconfig-homelab apply -f -
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny-ingress
-  namespace: default
-spec:
-  podSelector: {}
-  policyTypes:
-  - Ingress
-EOF
-```
-
-### Application Deployment Testing
-
-#### Deploy Test Application
-
-```bash
-# Deploy sample nginx application
-cat <<EOF | kubectl --kubeconfig kubeconfig-homelab apply -f -
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-test
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: nginx-test
-  template:
-    metadata:
-      labels:
-        app: nginx-test
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:1.21
-        ports:
-        - containerPort: 80
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx-test-service
-spec:
-  type: LoadBalancer
-  selector:
-    app: nginx-test
-  ports:
-  - port: 80
-    targetPort: 80
-EOF
-```
-
-#### Verify Application
-
-```bash
-# Check deployment
-kubectl --kubeconfig kubeconfig-homelab get deployment nginx-test -o wide
-
-# Check service and external IP
-kubectl --kubeconfig kubeconfig-homelab get service nginx-test-service -o wide
-
-# Test application access
-EXTERNAL_IP=$(kubectl --kubeconfig kubeconfig-homelab get service nginx-test-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-curl http://$EXTERNAL_IP
-```
