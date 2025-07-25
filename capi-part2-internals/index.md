@@ -360,10 +360,10 @@ spec:
 ```
 
 **Funzionalità:**
-- Maintain desired replica count
-- Replace failed machines automatically  
-- Scale up/down on demand
-- Template-based machine configuration
+- Mantiene costante il numero di macchine desiderato
+- Sostiusce macchine in caso di fail  
+- Gestisce scale up/down
+- Configurazione basata su template
 
 ### MachineDeployment CRD
 
@@ -389,10 +389,10 @@ spec:
 ```
 
 **Rolling update process:**
-1. Create new MachineSet with updated configuration
-2. Scale new MachineSet up according to strategy
-3. Scale old MachineSet down as new machines become ready
-4. Delete old MachineSet when migration completes
+1. Crea un nuovo MachineSet con la configurazione aggiornata
+2. Scala il nuovo MachineSet in base alla strategia definita
+3. Riduci il vecchio MachineSet man mano che le nuove macchine diventano pronte
+4. Elimina il vecchio MachineSet al termine della migrazione
 
 ---
 
@@ -447,7 +447,7 @@ Le operazioni CAPI sono progettate per essere [idempotenti](https://en.wikipedia
 **Esempi di operazioni idempotenti:**
 - Provisioning VM: verifica esistenza prima della creazione
 - Configuration update: apply solo se diversa dallo stato corrente  
-- Resource cleanup: ignore "not found" errors durante la cancellazione
+- Resource cleanup: ignora errori "not found" durante la cancellazione
 
 #### Gestione Errori e Retry
 
@@ -514,33 +514,25 @@ Machine Controller ──→ Bootstrap Provider ──→ TalosConfig Generation
 ```
 
 **Bootstrap Provider activities:**
-- Generate node-specific configuration
-- Create join tokens and certificates
-- Configure kubelet parameters
+- Genera configurazioni node-specific
+- Genera token di join e certificati
+- Configura prametri kubelet
 - Setup container runtime
-- Apply security policies
+- Applica policy di sicurezza
 
 ### Phase 4: Control Plane Initialization
 
 Per control plane nodes, il processo include passaggi aggiuntivi:
 
-```yaml
-# TalosControlPlane reconciliation
-spec:
-  replicas: 3
-  version: "v1.29.0"
-  
-# Sequenza di inizializzazione:
-# 1. First node: initialize etcd cluster
-# 2. Generate cluster certificates  
-# 3. Start API server, controller-manager, scheduler
-# 4. Additional nodes: join existing etcd cluster
-# 5. Configure load balancer endpoint
-```
+1. Primo nodo: inizializza cluster etcd 
+2. Genera certificati per il cluster  
+3. Avvia API server, controller-manager, scheduler
+4. Nodi successivi: join al cluster esistente
+5. Configura endpoint per il load balancer
 
 ### Phase 5: Kubeconfig Generation
 
-Una volta che l'API server è accessibile:
+Una volta che l'API server è accessibile viene generato, all'interno del management cluster, un secret che contiene il `kubeconfig` necessario per connettersi al workload cluster:
 
 ```go
 // Controller genera kubeconfig
@@ -563,7 +555,7 @@ kubeconfig := &corev1.Secret{
 
 ---
 
-## Debugging e Observability
+## Debugging e Resouce Inspection
 
 ### Monitoring Controller Health
 
