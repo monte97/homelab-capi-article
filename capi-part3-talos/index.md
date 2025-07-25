@@ -78,7 +78,7 @@ talosctl -n 192.168.1.100 logs kubelet
 talosctl -n 192.168.1.100 restart kubelet
 ```
 
-#### 2. Immutable Infrastructure
+#### 2. Infrastruttura Immutabile
 
 Il filesystem root è **completamente read-only**, prevenendo modifiche runtime che causano drift:
 
@@ -94,7 +94,7 @@ Il filesystem root è **completamente read-only**, prevenendo modifiche runtime 
 └── tmp/           # Temporary files (tmpfs)
 ```
 
-#### 3. Minimal Attack Surface
+#### 3. Superficie di attacco minimale
 
 Talos include **esclusivamente** i componenti necessari per eseguire Kubernetes:
 
@@ -516,15 +516,17 @@ La creazione di template Talos ottimizzate per Proxmox richiede configurazioni s
 
 #### VM Template Configuration
 
+> Nota: __FONDAMENTALE__ scaricare l'iso con supporto a `cloud-init` (denominata "no-cloud") e aggiungere l'estensione `siderolabs/qemu-guest-agent`
+
 ```bash
 # Download Talos ISO con estensioni Proxmox
 wget https://factory.talos.dev/image/\
 ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/\
-v1.7.0/metal-amd64.iso
+v1.10.5/nocloud-amd64.iso
 
 # Template VM settings per Proxmox
 qm create 8700 \
-  --name "talos-v1.7.0-template" \
+  --name "talos-template" \
   --ostype l26 \
   --memory 2048 \
   --balloon 0 \
@@ -532,7 +534,7 @@ qm create 8700 \
   --cpu cputype=host \
   --net0 virtio,bridge=vmbr0 \
   --scsi0 local-lvm:20,format=qcow2 \
-  --ide2 local:iso/talos-v1.7.0.iso,media=cdrom \
+  --ide2 local:iso/nocloud-amd64.iso,media=cdrom \
   --boot order=ide2 \
   --agent enabled=1,fstrim_cloned_disks=1
 ```
@@ -548,7 +550,7 @@ configPatches:
       # QEMU Guest Agent per integration con Proxmox
       - image: "ghcr.io/siderolabs/qemu-guest-agent:9.0.0"
       # Utilities addizionali se necessarie
-      - image: "ghcr.io/siderolabs/util-linux-tools:2.39.2"
+      # - image: "ghcr.io/siderolabs/util-linux-tools:2.39.2"
   
   - op: "add"
     path: "/machine/kernel/args"
@@ -636,7 +638,7 @@ extensions:
   - "ghcr.io/siderolabs/iscsi-tools:0.1.6"          # Storage integration
 ```
 
-### 4. Monitoring e Alerting
+### 4. Monitoring e Alerting (⚠️ TO BE TESTED ⚠️)
 
 Integrazione con sistemi di monitoring tradizionali:
 
