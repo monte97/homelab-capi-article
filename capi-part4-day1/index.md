@@ -65,15 +65,15 @@ pveum user token add capi@pve capi-token --privsep 0
 
 ```bash
 # Test API connectivity
-curl -k -H "Authorization: PVEAPIToken=capi@pve!capi-token=12345678-1234-1234-1234-123456789abc" \
+curl -k -H 'Authorization: PVEAPIToken=capi@pve!capi-token=12345678-1234-1234-1234-123456789abc' \
      "https://192.168.0.10:8006/api2/json/version"
 
 # Expected response
 {
   "data": {
-    "version": "8.2.2",
+    "version": "8.4",
     "repoid": "06a4bc2e6",
-    "release": "8.2"
+    "release": "8.4.0"
   }
 }
 ```
@@ -86,9 +86,7 @@ Il template VM rappresenta l'immagine base che verrà clonata per ogni nodo del 
 
 ```bash
 # Talos factory image con estensioni per Proxmox
-wget https://factory.talos.dev/image/\
-ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/\
-v1.10.5/nocloud-amd64.iso
+wget https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.10.5/nocloud-amd64.iso
 ```
 
 Questa immagine include:
@@ -108,7 +106,7 @@ qm create 8700 \
   --cores 2 \
   --cpu cputype=host \
   --net0 virtio,bridge=vmbr0 \
-  --scsi0 local-lvm:20,format=qcow2 \
+  --scsi0 local-lvm:20 \
   --ide2 local:iso/nocloud-amd64.iso,media=cdrom \
   --boot order=ide2 \
   --agent enabled=1,fstrim_cloned_disks=1
@@ -180,19 +178,6 @@ Il management cluster serve come control plane per orchestrare i workload cluste
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: capi-management
-nodes:
-- role: control-plane
-  kubeadmConfigPatches:
-  - |
-    kind: InitConfiguration
-    nodeRegistration:
-      kubeletExtraArgs:
-        node-labels: "node-role.kubernetes.io/management=true"
-  extraPortMappings:
-  # Expose CAPI webhook ports
-  - containerPort: 9443
-    hostPort: 9443
-    protocol: TCP
 ```
 
 ```bash
@@ -244,18 +229,18 @@ EOF
 
 ```bash
 # Create environment file
-cat > ~/.capi-env << 'EOF'
+cat > .capi-env << 'EOF'
 # Proxmox connection settings
-export PROXMOX_URL="https://192.168.0.10:8006/api2/json"
-export PROXMOX_TOKEN="capi@pve!capi-token"
+export PROXMOX_URL="https://192.168.0.10:8006/"
+export PROXMOX_TOKEN='capi@pve!capi-token'
 export PROXMOX_SECRET="12345678-1234-1234-1234-123456789abc"
 EOF
 
 # Source environment
-source ~/.capi-env
+source .capi-env
 
-# Make persistent
-echo "source ~/.capi-env" >> ~/.bashrc
+# Make persistent (Optional)
+echo "source .capi-env" >> .bashrc
 ```
 
 ### CAPI Initialization
@@ -269,7 +254,7 @@ clusterctl init \
   --bootstrap talos
 
 # Verify installation
-kubectl get pods -A | grep -E "(capi|proxmox|talos)"
+kubectl get pods --all-namespaces
 
 # Check provider status
 kubectl get providers -A
@@ -352,15 +337,7 @@ Prima del deployment, validare che tutti i prerequisiti siano soddisfatti:
 ```bash
 # Verify management cluster
 kubectl get nodes -o wide
-kubectl get pods -A | grep -E "(capi|proxmox|talos)"
-
-# Test Proxmox connectivity
-curl -k -H "Authorization: PVEAPIToken=$PROXMOX_TOKEN=$PROXMOX_SECRET" \
-     "$PROXMOX_URL/nodes" | jq '.data[].node'
-
-# Verify template exists
-curl -k -H "Authorization: PVEAPIToken=$PROXMOX_TOKEN=$PROXMOX_SECRET" \
-     "$PROXMOX_URL/nodes/K8S0/qemu/8700/config" | jq '.data.template'
+kubectl get pods --all-namespaces
 ```
 
 ### Cluster Configuration Generation
@@ -444,9 +421,6 @@ kubectl describe talosconfig homelab-cluster-cp-abc123
 #### Phase 3: Control Plane Ready
 
 ```bash
-# Wait for control plane ready
-kubectl wait --for=condition=ControlPlaneReady cluster/homelab-cluster --timeout=20m
-
 # Check control plane status
 kubectl get taloscontrolplane -A -o wide
 ```
@@ -577,12 +551,10 @@ kubectl --kubeconfig kubeconfig-homelab get pods -n kube-system | grep -E "(sche
 kubectl --kubeconfig kubeconfig-homelab run dns-test --image=busybox --restart=Never -- nslookup kubernetes.default.svc.cluster.local
 
 # Wait for pod completion and check results  
-kubectl --kubeconfig kubeconfig-homelab wait --for=condition=Ready pod/dns-test --timeout=60s
 kubectl --kubeconfig kubeconfig-homelab logs dns-test
 
 # Basic external connectivity test
 kubectl --kubeconfig kubeconfig-homelab run network-test --image=busybox --restart=Never -- ping -c 3 8.8.8.8
-kubectl --kubeconfig kubeconfig-homelab wait --for=condition=Ready pod/network-test --timeout=60s
 kubectl --kubeconfig kubeconfig-homelab logs network-test
 
 # Cleanup test pods
