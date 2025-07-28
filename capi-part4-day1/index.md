@@ -1,5 +1,5 @@
 ---
-title: "Parte 4: Setup Pratico - Day 1 Operations"
+title: "CAPI Parte 4: Setup Pratico - Day 1 Operations"
 date: 2025-07-24T10:30:00+01:00
 description: Guida completa al deployment iniziale di cluster Kubernetes utilizzando Cluster API (CAPI) - Da Zero a Cluster Funzionante
 menu:
