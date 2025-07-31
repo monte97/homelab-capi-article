@@ -20,7 +20,7 @@ La gestione di cluster Kubernetes rappresenta una delle sfide più complesse nel
 I metodi tradizionali per la gestione dei cluster Kubernetes si basano tipicamente su:
 
 - **Script personalizzati** per il provisioning e la configurazione dei nodi
-- **Procedure manuali** documentate per upgrade e manutenzione
+- **Procedure manuali** documentate, si spera, per upgrade e manutenzione
 - **Configurazioni statiche** difficili da versionare e replicare
 - **Approcci imperativi** che descrivono "come fare" piuttosto che "cosa ottenere"
 
@@ -29,11 +29,10 @@ I metodi tradizionali per la gestione dei cluster Kubernetes si basano tipicamen
 Secondo le [survey CNCF](https://www.cncf.io/reports/cncf-annual-survey-2023/), la complessità operativa rappresenta una delle principali sfide nell'adozione di Kubernetes a livello enterprise.
 
 #### Error-Prone Operations
-Ogni intervento manuale introduce potenziali punti di fallimento. Un esempio tipico di script per aggiungere un worker node:
+Ogni intervento manuale introduce potenziali punti di fallimento. Consideriamo ad esempio un possibile script per aggiungere un worker node:
 
 ```bash
 #!/bin/bash
-# Script per aggiungere worker node - versione tipica
 ssh worker-node-03
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
@@ -53,11 +52,11 @@ Questo approccio presenta criticità significative:
 
 #### Drift di Configurazione
 
-I cluster gestiti manualmente tendono a divergere nel tempo ("configuration drift"). Modifiche ad-hoc, hotfix applicati direttamente sui nodi, e procedure di upgrade inconsistenti portano a cluster "unique snowflakes" difficili da debuggare e mantenere.
+I cluster gestiti manualmente tendono a divergere nel tempo ("[configuration drift](https://spacelift.io/blog/what-is-configuration-drift)"). Modifiche ad-hoc, hotfix applicati direttamente sui nodi, e procedure di upgrade inconsistenti portano a cluster "unique snowflakes" difficili da debuggare e mantenere.
 
 #### Complessità di Scaling
 
-Le operazioni di scaling richiedono interventi manuali su più livelli:
+Le stesse problematiche che riguardano il provisioning iniziale si presentano anche quando abbiamo la necessità di scalare la nostra infrastruttura:
 - Provisioning dell'infrastruttura (VM, networking, storage)
 - Installazione e configurazione del sistema operativo
 - Setup dei componenti Kubernetes
@@ -108,13 +107,13 @@ CAPI utilizza un'architettura modulare basata su provider che permettono di astr
 
 CAPI introduce una separazione fondamentale tra due tipi di cluster:
 
-#### Management Cluster
+**Management Cluster**
 - Cluster Kubernetes che ospita i controller CAPI e i provider
 - Contiene le Custom Resource che rappresentano lo stato desiderato dei workload cluster
 - Gestisce il ciclo di vita completo degli altri cluster
 - Può essere un cluster leggero (anche locale con [`kind`](https://kind.sigs.k8s.io/))
 
-#### Workload Cluster
+**Workload Cluster**
 - Cluster Kubernetes di destinazione dove vengono deployate le applicazioni
 - Completamente gestiti dal Management Cluster
 - Ciclo di vita dichiarativo (creazione, aggiornamento, cancellazione)
@@ -180,6 +179,8 @@ L'implementazione utilizza **[Talos Linux](https://www.talos.dev/)** come sistem
 
 ### Deployment Process
 
+A grandissime linee, il processo di deploy funziona in questo modo:
+
 1. **Definizione dichiarativa**: creazione manifest YAML per il cluster desiderato
 2. **Apply al Management Cluster**: `kubectl apply -f cluster.yaml`
 3. **Controller Reconciliation**: i controller CAPI processano le risorse
@@ -189,8 +190,8 @@ L'implementazione utilizza **[Talos Linux](https://www.talos.dev/)** come sistem
 
 ### Scaling Operations
 
-Per modificare lo stato desiderato del cluster è sufficiente intervenire sui file yaml che descrivono lo stato desiderato, ad esempio incrementando il numero delle repliche:
-
+Al termine del deploy avremo un cluster k8s funzionanente e completamente funzionante (workload cluster) gestito dal cluster di management, al pari di ogni altra risorsa tipicamente gestita da k8s.
+Proprio per questo, possiamo operare su di esso semplicemente editando il file `yaml` che definisce la struttur adel cluster, ad esempio per incrementare il numero delle repliche è sufficiente specificare il nuovo valore:
 ```yaml
 # Scale control plane da 1 a 3 nodi
 spec:
