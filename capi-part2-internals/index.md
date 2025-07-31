@@ -66,16 +66,18 @@ Noi definiamo solamente le caratteristiche che desideriamo, in questo caso un co
 
 ## Componenti Core di CAPI
 
+![CAPI Core Components](imgs/management-cluster.svg)
+
 ### CAPI Core Controller
 
 Il [Core Controller](https://github.com/kubernetes-sigs/cluster-api/tree/main/controllers) rappresenta il cervello operativo di CAPI, responsabile dell'orchestrazione di alto livello del ciclo di vita dei cluster.
 
 #### Cluster Controller
 
-Gestisce la risorsa `Cluster`, coordinando l'interazione tra infrastructure provider e control plane provider:
+Il [Cluster Controller](https://cluster-api.sigs.k8s.io/developer/core/controllers/cluster) gestisce la risorsa `Cluster`, coordinando l'interazione tra infrastructure provider e control plane provider:
 
 **Funzioni principali:**
-- Validazione della specifica del cluster
+- Validazione della configurazione del cluster
 - Orchestrazione della sequenza di provisioning
 - Gestione dello stato `controlPlaneReady` e `infrastructureReady`
 - Generazione del `kubeconfig` per l'accesso al workload cluster
@@ -104,7 +106,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) {
 
 #### Machine Controller
 
-Il [Machine Controller](https://cluster-api.sigs.k8s.io/developer/architecture/controllers/machine/) gestisce il ciclo di vita delle singole istanze di calcolo che compongono il cluster:
+Il [Machine Controller](https://cluster-api.sigs.k8s.io/developer/core/controllers/machine) gestisce il ciclo di vita delle singole istanze di calcolo che compongono il cluster:
 
 **Responsabilità operative:**
 - Coordinamento con Infrastructure Provider per provisioning VM
@@ -126,7 +128,7 @@ status:
 
 ### Bootstrap Provider
 
-Il Bootstrap Provider traduce le configurazioni dichiarative in script di inizializzazione che trasformano macchine virtuali "nude" in nodi Kubernetes funzionali.
+Il "bootstrap provider" in Kubernetes Cluster API è un componente fondamentale che si occupa di inizializzare il primo nodo di un nuovo cluster Kubernetes, noto come "control plane node" o "master node". In parole semplici, è il motore che avvia il cluster. Esistono diverse implementazioni in base al "modo" in cui vogliamo che il cluster sia inizializzato
 
 #### Kubeadm Bootstrap Provider
 
@@ -173,7 +175,9 @@ spec:
 
 ### Control Plane Provider
 
-Il Control Plane Provider gestisce i componenti master del cluster Kubernetes, inclusi API server, etcd, controller manager e scheduler.
+Il "control plane provider" in Kubernetes Cluster API è un componente chiave che si occupa della gestione del piano di controllo del cluster (control plane) dopo che il primo nodo è stato inizializzato. A differenza del bootstrap provider, che si limita ad avviare il primo nodo, il control plane provider gestisce l'intero ciclo di vita dei nodi del piano di controllo, garantendo che il cluster rimanga stabile e ad alta disponibilità.
+
+Come per il bootstrap provider, anche in questo caso abbiamo diverse implementazioni a seconda del caso d'uso.
 
 #### KubeadmControlPlane Provider
 
@@ -215,7 +219,11 @@ Il [TalosControlPlane](https://github.com/siderolabs/cluster-api-control-plane-p
 
 ### Infrastructure Provider
 
-Gli Infrastructure Provider implementano l'interfaccia tra CAPI e le piattaforme di virtualizzazione/cloud specifiche.
+L'infrastrucure provider è il componente che si occupa di dialogare con le risorse hardware, siano essere cloud o on-premise, con lo scopo di inizializzare le risorse che formeranno il cluster.
+
+A differenza del bootstrap provider e del control plane provider, che si concentrano specificamente sulla configurazione di Kubernetes, l'infrastructure provider si occupa di tutto ciò che sta "sotto" il cluster.
+
+
 
 #### Provider Pattern
 
