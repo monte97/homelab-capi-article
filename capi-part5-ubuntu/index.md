@@ -137,21 +137,12 @@ Questo processo può richiedere diversi minuti. Al termine, avrai un template Pr
 
 ### Setup del Management Cluster
 
-Cluster API richiede un cluster Kubernetes esistente per gestire i cluster workload. Utilizziamo kind per crearlo:
+Cluster API richiede un cluster Kubernetes esistente per gestire i cluster workload. Una volta configurate le variabili d'ambiente, utilizziamo kind per creare il cluster di gestione:
 
 ```bash
 # Crea il cluster di management con kind
 kind create cluster --name capi-management
 
-# Inizializza i provider Cluster API
-clusterctl init --infrastructure proxmox --ipam in-cluster
-```
-
-### Configurazione delle Credenziali
-
-Prima di creare il cluster workload, dobbiamo configurare le credenziali per Proxmox e una chiave SSH per l'accesso ai nodi.
-
-```bash
 # Genera una chiave SSH se non ne hai già una
 ssh-keygen -t rsa -b 4096 -f ~/.ssh/capi-cluster -N ""
 
@@ -159,7 +150,11 @@ ssh-keygen -t rsa -b 4096 -f ~/.ssh/capi-cluster -N ""
 export PROXMOX_URL="https://<PROXMOX-URI>:8006"
 export PROXMOX_TOKEN='<TOKEN-ID>=<TOKEN-SECRET>'
 export PROXMOX_SOURCENODE="<proxmox-node>"
+
+# Inizializza i provider Cluster API
+clusterctl init --infrastructure proxmox --ipam in-cluster
 ```
+
 
 ### Generazione e Deploy del Cluster
 
